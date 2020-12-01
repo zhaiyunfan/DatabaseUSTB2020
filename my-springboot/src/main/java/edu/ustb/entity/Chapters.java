@@ -17,14 +17,12 @@ public class Chapters
     @Id //表示是主键
     @GeneratedValue(strategy = GenerationType.IDENTITY) //使用默认的主键生成策略 auto_increment
     @TableId(value = "cid",type = IdType.AUTO)
-
     private int cid;    //章节编号
+
     private int nid;    //小说编号
     private int chaptersNum;    //章节号
     private String editDate; //修改日期
 
-    @Column(length = 140)
-    private String summary; //单章简介
     @Column(length = 20000)
     private String text;    //正文
 }

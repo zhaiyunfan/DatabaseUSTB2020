@@ -19,8 +19,9 @@ public class NovelGenres
 {
     @Id //表示是主键
     @GeneratedValue(strategy = GenerationType.IDENTITY) //使用默认的主键生成策略 auto_increment
-    @TableId(value = "nvid", type = IdType.AUTO)
+    @TableId(value = "ngid", type = IdType.AUTO)
     private int ngid;   //中间id
+
     private int nid;    //小说id
     private int gid;    //类型id
 }

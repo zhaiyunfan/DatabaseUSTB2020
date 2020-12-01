@@ -24,6 +24,7 @@ public class Novels
     private String writer; //所属作者
     private String editDate; //修改日期
 
+    private int totalChapters;
     @Column(length = 140)
     private String summary; //小说简介
 //    @Column(length = 20000)
