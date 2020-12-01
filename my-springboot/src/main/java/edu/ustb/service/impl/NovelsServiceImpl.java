@@ -38,13 +38,15 @@ public class NovelsServiceImpl implements NovelsService
         novels.setTotalChapters(0);
         novels.setSummary(summary);
 
+        System.out.println(novels);
         int res = novelsMapper.insert(novels);
-
+        System.out.println("novels插入成功");
         int genreExist = checkGenresNameExist(genre);
         if (genreExist == 0)
         {
             Genres genres = new Genres();
             genres.setGenre(genre);
+            System.out.println(genre);
             int genresRes = genresMapper.insert(genres);
             System.out.println(genres);
             System.out.println("Genres插入结果:" + genresRes);
@@ -73,7 +75,8 @@ public class NovelsServiceImpl implements NovelsService
         chapters.setChaptersNum(chaptersNum);
         chapters.setEditDate((new Date()).toString());
         //处理下字符串
-        text = text.replace("\n\n","<br>");
+        //text = text.replace("\n\n","<br>");
+        //不处理了，会和tomcat 的保留字段冲突
         chapters.setText(text);
         int res = chaptersMapper.insert(chapters);
 

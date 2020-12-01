@@ -123,6 +123,7 @@ public class NovelController
     @ResponseBody
     public Map<String, Object> view(String novelName, int chaptersNum)
     {
+        System.out.println(chaptersNum);
         Map<String, Object> result = new HashMap<String, Object>();
         Chapters chapters = novelsService.viewChapters(novelName,chaptersNum);
         if (chapters != null)
