@@ -12,20 +12,19 @@ import javax.persistence.*;
 @Data //自动生成getter/setter toString hashCode equals
 @AllArgsConstructor //自动生成带所有参数的构造方法
 @NoArgsConstructor //自动生成默认不带参数的构造方法
-
-public class Novels
+public class Chapters
 {
     @Id //表示是主键
     @GeneratedValue(strategy = GenerationType.IDENTITY) //使用默认的主键生成策略 auto_increment
-    @TableId(value = "nid", type = IdType.AUTO)
-    private int nid;    //小说编号
+    @TableId(value = "cid",type = IdType.AUTO)
 
-    private String novelName;   //小说名
-    private String writer; //所属作者
+    private int cid;    //章节编号
+    private int nid;    //小说编号
+    private int chaptersNum;    //章节号
     private String editDate; //修改日期
 
     @Column(length = 140)
-    private String summary; //小说简介
-//    @Column(length = 20000)
-//    private String text;    //正文
+    private String summary; //单章简介
+    @Column(length = 20000)
+    private String text;    //正文
 }
