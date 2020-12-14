@@ -23,6 +23,7 @@ public class Chapters
     private int chaptersNum;    //章节号
     private String editDate; //修改日期
 
-    @Column(length = 20000)
+//    @Column(length = 20000) //Windows平台下设置
+    @Column(length = 16000) //Linux平台下设置
     private String text;    //正文
 }
