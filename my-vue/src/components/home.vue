@@ -51,7 +51,7 @@
             <el-table-column
                 label="简介"
                 align="center"
-                width="800">
+                width="700">
               <template slot-scope="scope">
                 <span>{{ scope.row.summary }}</span>
               </template>

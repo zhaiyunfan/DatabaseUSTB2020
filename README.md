@@ -1,4 +1,22 @@
-# DatabaseUSTB2020
+# 开源小说共享平台
+
+## 项目概述
+
+### 综述
+
+依赖于```Vue+SpringBoot+docker```本项目需实现一个开源小说共享平台网站，作者可以将小说及其信息上传至网站，且在后续操作中可以添加章节，读者可以自由选择想要阅读的小说的章节，并可以通过小说类型进行查询。
+
+### 需求分析
+
+1. 需要设计用于存储小说内容和标题、作者、简介、类型等信息的数据库；
+
+2. 需要根据实际使用需求设计web界面，以实现小说基本信息的展示和小说以及章节的添加、阅读等功能的可视化；
+
+3. 实现小说标题、作者、简介、类型添加至数据库的功能，并能在web界面进行显示；
+
+4. 实现根据类型查找指定类型小说的功能，并能将查找结果显示在web界面；
+
+5. 能够在首页展示的每部小说中添加章节和阅读章节；
 
 ## 后端接口API表
 
@@ -58,9 +76,18 @@ novelName	小说名称
 chaptersNum	章节序号
 ```
 
+## 数据库设计
 
+数据库中共有四张表
 
+1. Novels表：存放除章节正文外的所有的小说信息，主键nid
+2. Genres表：存放小说类型信息，主键gid
+3. NovelGenres表：中间表，通过nid和gid的外键依赖建立每部小说与其类型之间的对应关系，主键ngid
+4. Chapter表：存放一个章节的正文，通过nid的外键依赖来确定该章正文的归属，主键cid
 
+![](/home/zhaiyunfan/图片/微信图片_20201215201120.png)
+
+各主键均采用自增策略
 
 ## 安装指南
 
@@ -135,6 +162,36 @@ npm会自动编译整个Vue项目，并在```http://localhost:8080/ ```下映射
 ![](/home/zhaiyunfan/图片/2020-12-14 19-58-18 的屏幕截图.png)
 
 填写完毕后点击确定，前端会将输入的四个字段的小说信息自动封装好，并作为参数向后端接口URL```novel/create```发送post请求
+
+```javascript
+    dialogFormAdd(formdong) {
+      console.log(this.formData)
+      this.$refs[formdong].validate((valid) => {
+        if (valid) {
+          let params = new URLSearchParams();
+          params.append('novelName',this.formData.novelName)
+          params.append('writer',this.formData.writer)
+          params.append('summary',this.formData.summary)
+          params.append('genre',this.formData.genre)
+          this.$axios.post('novel/create', params).then(res => {
+            this.$message({
+              type: "success",
+              message: "添加书籍成功"
+            })
+            this.dialogAdd.show = false;
+            this.$emit('update');
+            console.log(res)
+          })
+          this.formDate = ""
+        } else {
+          console.log('填写字段不完整');
+          return false;
+        }
+      })
+    }
+```
+
+
 
 此处对应的后端代码如下
 
@@ -330,6 +387,18 @@ npm会自动编译整个Vue项目，并在```http://localhost:8080/ ```下映射
 
 每次刷新或操作前端页面时，都会依据页面左上角输入的查询指定类型小说字段，自动向后端接口发送一个get请求，此get请求的URL为```novel/search?genre=```+```小说类型字段```，通过URL拼接，可以实现对不同类型小说的列表查询。
 
+```javascript
+    getUserInfo() {
+      let url = 'novel/search?genre=' + keyUser
+      this.$axios.get(url).then(res => {
+        console.log(res)
+        this.tableData = res.data.novelsList
+      })
+    },
+```
+
+
+
 ```java
     @GetMapping("search")
     @ResponseBody
@@ -432,5 +501,317 @@ SELECT nid,novel_name,writer,edit_date,total_chapters,summary FROM novels
 
 查询完毕后，后端将返回的小说列表返回给前端，并显示在页面上，这样就完成了小说的按类型搜索及展示功能。
 
- ## 添加章节
+### 添加章节
+
+在首页展示的每部小说都可以使用对应的*添加章节*和*阅读章节*按钮进行章节层面的操作
+
+![](/home/zhaiyunfan/图片/2020-12-15 12-26-59 的屏幕截图.png)
+
+首先以添加章节为例，点击添加章节按钮，会唤出添加章节组件
+
+![](/home/zhaiyunfan/图片/2020-12-15 12-45-10 的屏幕截图.png)
+
+前端页面会记录每一部小说的总章数，待插入章节序号会默认在总章数基础上顺序自增，和正文属性一样，都是必填项
+
+填写完成并点击确定后，前端会将小说名```novelName```、待插入章节序号```chaptersNum```和章节正文```text```封装好，调用```novel/add/```接口发送post请求
+
+```javascript
+    dialogFormEdit(formEdit) {
+      this.$refs[formEdit].validate((valid) => {
+        if (valid) {
+          let params = new URLSearchParams();
+          params.append('novelName',this.form.novelName)
+          params.append('chaptersNum',this.form.chaptersNum)
+          params.append('text',this.form.mainText)
+          this.$axios.post(`novel/add`,params).then(res => {
+            this.$message({
+              type:"success",
+              message:"插入章节成功"
+            })
+            console.log(res)
+            this.dialogEdit.show = false;
+            this.$emit('updateEdit')
+          })
+        } else {
+          console.log('error submit!!');
+          return false;
+        }
+```
+
+后端监听到这个请求后进入章节添加流程，在插入之前，需要预先做一些参数合法性判断
+
+```java
+    @PostMapping("add")
+    @ResponseBody
+    public Map<String, Object> add(String novelName, int chaptersNum, String text)
+    {
+        Map<String, Object> result = new HashMap<String, Object>();
+        int novelId = novelsService.checkNovelNameExist(novelName);
+        if (novelId == 0)
+        {
+            result.put("code", 400);
+            result.put("chapters", null);
+            result.put("msg", "小说名不存在");
+            return result;
+        }
+
+        if (novelsService.checkChaptersNumExist(chaptersNum, novelId) != 0)
+        {
+            result.put("code", 400);
+            result.put("chapters", null);
+            result.put("msg", "章节已存在");
+            return result;
+        }
+
+        if (chaptersNum < 1)
+        {
+            result.put("code", 400);
+            result.put("chapters", null);
+            result.put("msg", "章节号不能小于1");
+            return result;
+        }
+
+        Chapters chapters = novelsService.add(novelId, chaptersNum, text);
+
+        if (chapters != null)
+        {
+            result.put("code", 200);
+            result.put("chapters", chapters);
+            result.put("msg", "章节创建过程成功");
+        } else
+        {
+            result.put("code", 400);
+            result.put("chapters", null);
+            result.put("msg", "章节创建过程失败");
+        }
+        System.out.println(result);
+        return result;
+    }
+```
+
+首先调用```novelsService.checkNovelNameExist(novelName)```函数发起SQL查询，判断接收到的novelName对应的小说是否已经存在，如果小说不存在，则发生错误，直接结束创建流程
+
+> Novel和Chapter的对应关系有Chapters表中的nid字段来确定，每个Chapter会存储它所属的Novel的nid，外键约束
+
+如果小说已存在，则根据```novelName```和```chapterNum```判断该小说的这一章节是否已经存在，调用```novelsService.checkChaptersNumExist(chaptersNum, novelId)```函数，发起SQL查询，执行SQL语句
+
+```mysql
+==>  Preparing: SELECT cid,nid,chapters_num,edit_date,text FROM chapters WHERE (nid = ? AND chapters_num = ?) 
+==> Parameters: 1(Integer), 1(Integer)
+<==      Total: 0
+```
+
+如果查询结果元组为空，该小说不存在对应章节，则最后判断下```chapterNum```是否大于等于1，如过是则入参合法，正式调用```novelsService.add(novelId, chaptersNum, text)```函数进行插入流程
+
+```java
+    @Override
+    public Chapters add(int nid, int chaptersNum, String text)
+    {
+        Chapters chapters = new Chapters();
+        chapters.setNid(nid);
+        chapters.setChaptersNum(chaptersNum);
+        chapters.setEditDate((new Date()).toString());
+        //处理下字符串
+        //text = text.replace("\n\n","<br>");
+        //不处理了，会和tomcat 的保留字段冲突
+        chapters.setText(text);
+        int res = chaptersMapper.insert(chapters);
+
+        Novels novels = novelsMapper.selectById(nid);
+        novels.setEditDate(chapters.getEditDate());
+        novels.setTotalChapters(novels.getTotalChapters() + 1);
+
+        novelsMapper.updateById(novels);
+        System.out.println(novels);
+
+        if (res > 0)
+        {
+            return chaptersMapper.selectById(chapters.getCid());
+        }
+        return null;
+    }
+```
+
+封装好Chapter对象后执行SQL语句
+
+```mysql
+==>  Preparing: INSERT INTO chapters ( nid, chapters_num, edit_date, text ) VALUES ( ?, ?, ?, ? ) 
+==> Parameters: 1(Integer), 1(Integer), Tue Dec 15 12:48:38 CST 2020(String), 中国，1967年。(为保持报告整洁以下部分正文字段省略)(String)
+<==    Updates: 1
+```
+
+进行插入，插入完成后，需要更新Novel对象的修改日期和总章节数，先按nid执行SQL查询，获取Novel对象
+
+```mysql
+<==    Columns: nid, novel_name, writer, edit_date, total_chapters, summary
+<==        Row: 1, 三体, 刘慈欣, Mon Dec 14 19:58:58 CST 2020, 0, 获得星云奖的科幻小说
+<==      Total: 1
+```
+
+修改Novel对象的部分属性，将修改日期更新为章节的插入日期，并将总章数自增
+
+```java
+        novels.setEditDate(chapters.getEditDate());
+        novels.setTotalChapters(novels.getTotalChapters() + 1);
+```
+
+然后将更新的Novel对象重新update回数据库，执行update SQL语句
+
+```mysql
+==>  Preparing: UPDATE novels SET novel_name=?, writer=?, edit_date=?, total_chapters=?, summary=? WHERE nid=? 
+==> Parameters: 三体(String), 刘慈欣(String), Tue Dec 15 12:48:38 CST 2020(String), 1(Integer), 获得星云奖的科幻小说(String), 1(Integer)
+<==    Updates: 1
+```
+
+最后执行SQL查询，按Chapter的cid查询确认下是否插入成功
+
+```mysql
+==>  Preparing: SELECT cid,nid,chapters_num,edit_date,text FROM chapters WHERE cid=? 
+==> Parameters: 1(Integer)
+<==    Columns: cid, nid, chapters_num, edit_date, text
+<==        Row: 1, 1, 1, Tue Dec 15 12:48:38 CST 2020, 中国，1967年。(报告中部分正文省略)
+<==      Total: 1
+```
+
+并将查询结果封装返回给前端，前端提示插入成功，并自动调用```/novel/search```接口更新前端页面，重新从后端数据库获取数据，整个插入过程就结束了
+
+![](/home/zhaiyunfan/图片/2020-12-15 13-25-11 的屏幕截图.png)
+
+插入章节后，Novel的总章节数和修改日期都会更新
+
+### 阅读章节
+
+同样的，点击阅读章节可以唤出章节阅读页面
+
+![](/home/zhaiyunfan/图片/2020-12-15 13-28-33 的屏幕截图.png)
+
+此处可以输入大于零但小于等于该小说总章数的章节号，确定后同样会在URL中拼接```novelName```和```chaptersNun```，调用```/novel/chapter```接口发送get请求
+
+```javascript
+    handleRead(novelName, totalChapters) {
+      this.$prompt('请输入要阅读的章节号', '正文', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消'
+      }).then(({value}) => {
+        console.log(value);
+        console.log(novelName)
+        if (value > totalChapters) {
+          this.$message({
+            type: "fail",
+            message: "超出总章数限制"
+          })
+          return false
+        } else {
+          console.log('novel/chapter?novelName='+{novelName}+'&chaptersNum='+{value})
+          this.$axios.get('novel/chapter?novelName='+novelName+'&chaptersNum='+value).then(res => {
+            this.dialogVisible = true
+            console.log(res.data.chaptersList.text)
+            this.dialogText = res.data.chaptersList.text
+            this.$message({
+              type: "success",
+              message: "打开章节成功"
+            })
+            console.log(res)
+
+          })
+
+        }
+      });
+    },
+```
+
+后端监听到接口请求后，会直接调用```novelsService.viewChapters(novelName,chaptersNum)```函数
+
+```java
+    @GetMapping("chapter")
+    @ResponseBody
+    public Map<String, Object> view(String novelName, int chaptersNum)
+    {
+        System.out.println(chaptersNum);
+        Map<String, Object> result = new HashMap<String, Object>();
+        Chapters chapters = novelsService.viewChapters(novelName,chaptersNum);
+        if (chapters != null)
+        {
+            result.put("code", 200);
+            result.put("chaptersList", chapters);
+            result.put("msg", "查找" + novelName + "小说"+chaptersNum+"章节成功");
+        } else
+        {
+            result.put("code", 400);
+            result.put("novelsList", null);
+            result.put("msg", "查找" + novelName + "小说"+chaptersNum+"章节失败");
+        }
+        return result;
+    }
+```
+
+```java
+    @Override
+    public Chapters viewChapters(String novelName, int chaptersNum)
+    {
+        QueryWrapper<Novels> novelsQueryWrapper = new QueryWrapper<Novels>();
+        novelsQueryWrapper.eq("novel_name", novelName);
+        Novels novels = novelsMapper.selectOne(novelsQueryWrapper);
+        if (novels == null)
+        {
+            System.out.println("找不到小说" + novelName);
+            return null;
+        }
+        int nid = novels.getNid();
+
+        QueryWrapper<Chapters> chaptersQueryWrapper = new QueryWrapper<Chapters>();
+        chaptersQueryWrapper.eq("nid", nid).eq("chapters_num", chaptersNum);
+        Chapters chapters = chaptersMapper.selectOne(chaptersQueryWrapper);
+        if (chapters == null)
+        {
+            System.out.println("找不到章节" + chaptersNum);
+            return null;
+        }
+        return chapters;
+    }
+```
+
+首先会发起查询，按```novel_name```字段来查找对应小说，执行SQL语句
+
+```mysql
+==>  Preparing: SELECT nid,novel_name,writer,edit_date,total_chapters,summary FROM novels WHERE (novel_name = ?) 
+==> Parameters: 三体(String)
+<==    Columns: nid, novel_name, writer, edit_date, total_chapters, summary
+<==        Row: 1, 三体, 刘慈欣, Tue Dec 15 12:48:38 CST 2020, 1, 获得星云奖的科幻小说
+<==      Total: 1
+```
+
+获取查询结果中的```nid```字段，与```chapters_num```字段一同进行SQL查询，执行SQL语句
+
+```mysql
+==>  Preparing: SELECT cid,nid,chapters_num,edit_date,text FROM chapters WHERE (nid = ? AND chapters_num = ?) 
+==> Parameters: 1(Integer), 1(Integer)
+<==    Columns: cid, nid, chapters_num, edit_date, text
+<==        Row: 1, 1, 1, Tue Dec 15 12:48:38 CST 2020, 中国，1967年。(省略部分正文)
+<==      Total: 1
+```
+
+并将得到的章节查询结果返回给前端进行显示
+
+![](/home/zhaiyunfan/图片/2020-12-15 13-32-30 的屏幕截图.png)
+
+![](/home/zhaiyunfan/图片/2020-12-15 13-40-31 的屏幕截图.png)
+
+至此，小说的章节阅读功能就完成了
+
+## Docker部署指南
+
+直接使用```docker-compose```进行打包，只需要简单的对Vue\SpringBoot\Tomcat分别书写```docker-file```就可以直接进行打包
+
+![](/home/zhaiyunfan/图片/微信图片_20201215200728.jpg)
+
+![](/home/zhaiyunfan/图片/微信图片_20201215200749.jpg)
+
+![](/home/zhaiyunfan/图片/微信图片_20201215200759.jpg)
+
+
+
+## 项目反思
+
+由于工程经验的缺失，对前端技术的不熟悉，起初实现了按类型查找的接口，但是并没能将这个接口在前端输入后正常调用，几番查找资料后最终才搞明白怎么获取输出并实时刷新，最终万幸没有留下遗憾
 
